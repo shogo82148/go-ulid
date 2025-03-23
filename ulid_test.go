@@ -136,9 +136,105 @@ func FuzzParse(f *testing.F) {
 	})
 }
 
+func TestString(t *testing.T) {
+	id := ULID{0x01, 0x56, 0x3e, 0x3a, 0xb5, 0xd3, 0xd6, 0x76, 0x4c, 0x61, 0xef, 0xb9, 0x93, 0x02, 0xbd, 0x5b}
+	if id.String() != "01ARZ3NDEKTSV4RRFFQ69G5FAV" {
+		t.Fatalf("id=%s", id.String())
+	}
+}
+
+func TestMarshalText(t *testing.T) {
+	id := ULID{0x01, 0x56, 0x3e, 0x3a, 0xb5, 0xd3, 0xd6, 0x76, 0x4c, 0x61, 0xef, 0xb9, 0x93, 0x02, 0xbd, 0x5b}
+	data, err := id.MarshalText()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []byte("01ARZ3NDEKTSV4RRFFQ69G5FAV")
+	if !bytes.Equal(data, want) {
+		t.Fatalf("data=%s", data)
+	}
+}
+
+func TestUnmarshalText(t *testing.T) {
+	data := []byte("01ARZ3NDEKTSV4RRFFQ69G5FAV")
+	var id ULID
+	if err := id.UnmarshalText(data); err != nil {
+		t.Fatal(err)
+	}
+	want := ULID{0x01, 0x56, 0x3e, 0x3a, 0xb5, 0xd3, 0xd6, 0x76, 0x4c, 0x61, 0xef, 0xb9, 0x93, 0x02, 0xbd, 0x5b}
+	if id != want {
+		t.Fatalf("want %v, got %v", want, id)
+	}
+}
+
+func TestAppendText(t *testing.T) {
+	id := ULID{0x01, 0x56, 0x3e, 0x3a, 0xb5, 0xd3, 0xd6, 0x76, 0x4c, 0x61, 0xef, 0xb9, 0x93, 0x02, 0xbd, 0x5b}
+	data, err := id.AppendText(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []byte("01ARZ3NDEKTSV4RRFFQ69G5FAV")
+	if !bytes.Equal(data, want) {
+		t.Fatalf("data=%s", data)
+	}
+}
+
 func BenchmarkString(b *testing.B) {
 	id := Make()
 	for b.Loop() {
 		runtime.KeepAlive(id.String())
+	}
+}
+
+func BenchmarkMarshalText(b *testing.B) {
+	id := Make()
+	for b.Loop() {
+		s, err := id.MarshalText()
+		if err != nil {
+			b.Fatal(err)
+		}
+		runtime.KeepAlive(s)
+	}
+}
+
+func TestIsZero(t *testing.T) {
+	if !Zero.IsZero() {
+		t.Fatalf("Zero.IsZero()=%v", Zero.IsZero())
+	}
+	if Make().IsZero() {
+		t.Fatalf("Make().IsZero()=%v", Make().IsZero())
+	}
+}
+
+func BenchmarkIsZero(b *testing.B) {
+	for b.Loop() {
+		runtime.KeepAlive(Make().IsZero())
+	}
+}
+
+func TestCompare(t *testing.T) {
+	id1, err := Parse("0000XSNJG0MQJHBF4QX1EFD6Y3")
+	if err != nil {
+		t.Fatal(err)
+	}
+	id2, err := Parse("01ARZ3NDEKTSV4RRFFQ69G5FAV")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if id1.Compare(id2) != -1 {
+		t.Fatalf("id1.Compare(id2)=%v", id1.Compare(id2))
+	}
+	if id2.Compare(id1) != 1 {
+		t.Fatalf("id2.Compare(id1)=%v", id2.Compare(id1))
+	}
+	if id1.Compare(id1) != 0 {
+		t.Fatalf("id1.Compare(id1)=%v", id1.Compare(id1))
+	}
+}
+
+func BenchmarkCompare(b *testing.B) {
+	id := Make()
+	for b.Loop() {
+		runtime.KeepAlive(id.Compare(id))
 	}
 }
