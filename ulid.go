@@ -258,8 +258,8 @@ func (id ULID) text() [26]byte {
 	// 16 bytes random
 	buf[10] = encoding[(c>>27)&0x1f]
 	buf[11] = encoding[(c>>22)&0x1f]
-	buf[12] = encoding[(c>>18)&0x1f]
-	buf[13] = encoding[(c>>13)&0x1f]
+	buf[12] = encoding[(c>>17)&0x1f]
+	buf[13] = encoding[(c>>12)&0x1f]
 	buf[14] = encoding[(c>>7)&0x1f]
 	buf[15] = encoding[(c>>2)&0x1f]
 	buf[16] = encoding[(d>>21)&0x1f]
