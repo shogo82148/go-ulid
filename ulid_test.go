@@ -207,8 +207,9 @@ func TestIsZero(t *testing.T) {
 }
 
 func BenchmarkIsZero(b *testing.B) {
+	id := Make()
 	for b.Loop() {
-		runtime.KeepAlive(Make().IsZero())
+		runtime.KeepAlive(id.IsZero())
 	}
 }
 
