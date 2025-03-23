@@ -1,6 +1,7 @@
 package ulid
 
 import (
+	"bytes"
 	"crypto/rand"
 	"errors"
 	"time"
@@ -26,6 +27,9 @@ A ULID is a 16 byte Universally Unique Lexicographically Sortable Identifier
 */
 type ULID [16]byte
 
+// Zero is the zero value for a ULID.
+var Zero ULID
+
 // Errors returned by the Parse function.
 var ErrInvalidSize = errors.New("ulid: invalid size")
 
@@ -50,19 +54,51 @@ func Make() ULID {
 
 // SetTime sets the time component of the ULID to the given Unix milliseconds.
 func (id *ULID) SetTime(ms int64) {
-	(*id)[0] = byte(ms >> 40)
-	(*id)[1] = byte(ms >> 32)
-	(*id)[2] = byte(ms >> 24)
-	(*id)[3] = byte(ms >> 16)
-	(*id)[4] = byte(ms >> 8)
-	(*id)[5] = byte(ms)
+	id[0] = byte(ms >> 40)
+	id[1] = byte(ms >> 32)
+	id[2] = byte(ms >> 24)
+	id[3] = byte(ms >> 16)
+	id[4] = byte(ms >> 8)
+	id[5] = byte(ms)
 }
 
+// Time returns the time component of the ULID as Unix milliseconds.
+func (id ULID) Time() int64 {
+	return int64(id[0])<<40 | int64(id[1])<<32 | int64(id[2])<<24 |
+		int64(id[3])<<16 | int64(id[4])<<8 | int64(id[5])
+}
+
+// MarshalBinary implements the [encoding.BinaryMarshaler] interface.
+func (id ULID) MarshalBinary() ([]byte, error) {
+	ret := make([]byte, len(id))
+	copy(ret, id[:])
+	return ret, nil
+}
+
+// UnmarshalBinary implements the [encoding.BinaryUnmarshaler] interface.
+func (id *ULID) UnmarshalBinary(data []byte) error {
+	if len(data) != len(id) {
+		return ErrInvalidSize
+	}
+	copy(id[:], data)
+	return nil
+}
+
+// AppendBinary implements the [encoding.BinaryAppender] interface.
+func (id ULID) AppendBinary(b []byte) ([]byte, error) {
+	return append(b, id[:]...), nil
+}
+
+// Parse parses a ULID from a string.
 func Parse(s string) (ULID, error) {
 	return parse(s)
 }
 
-func parse(s string) (ULID, error) {
+type bs interface {
+	[]byte | string
+}
+
+func parse[T bs](s T) (ULID, error) {
 	if len(s) != EncodedSize {
 		return ULID{}, ErrInvalidSize
 	}
@@ -230,12 +266,35 @@ func (id ULID) String() string {
 	return string(buf[:])
 }
 
+// MarshalText implements the [encoding.TextMarshaler] interface.
 func (id ULID) MarshalText() ([]byte, error) {
 	buf := id.text()
 	return buf[:], nil
 }
 
+// UnmarshalText implements the [encoding.TextUnmarshaler] interface.
+func (id *ULID) UnmarshalText(data []byte) error {
+	id2, err := parse(data)
+	if err != nil {
+		return err
+	}
+	*id = id2
+	return nil
+}
+
+// AppendText implements the [encoding.TextAppender] interface.
 func (id ULID) AppendText(b []byte) ([]byte, error) {
 	buf := id.text()
 	return append(b, buf[:]...), nil
+}
+
+// IsZero returns true if the ULID is the zero value.
+func (id ULID) IsZero() bool {
+	return id == Zero
+}
+
+// Compare returns an integer comparing two ULIDs lexicographically.
+// The result will be 0 if id==other, -1 if id < other, and +1 if id > other.
+func (id ULID) Compare(other ULID) int {
+	return bytes.Compare(id[:], other[:])
 }
