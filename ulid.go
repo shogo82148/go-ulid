@@ -3,6 +3,7 @@ package ulid
 import (
 	"bytes"
 	"crypto/rand"
+	"database/sql/driver"
 	"errors"
 	"time"
 )
@@ -215,7 +216,7 @@ var dec = [...]int8{
 	-1, -1, -1, -1, -1, -1,
 }
 
-const encoding = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
+const enc = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 
 func (id ULID) text() [26]byte {
 	var buf [26]byte
@@ -229,34 +230,34 @@ func (id ULID) text() [26]byte {
 		uint64(id[14])<<8 | uint64(id[15])
 
 	// 10 bytes timestamp
-	buf[0] = encoding[(h>>61)&0x1f]
-	buf[1] = encoding[(h>>56)&0x1f]
-	buf[2] = encoding[(h>>51)&0x1f]
-	buf[3] = encoding[(h>>46)&0x1f]
-	buf[4] = encoding[(h>>41)&0x1f]
-	buf[5] = encoding[(h>>36)&0x1f]
-	buf[6] = encoding[(h>>31)&0x1f]
-	buf[7] = encoding[(h>>26)&0x1f]
-	buf[8] = encoding[(h>>21)&0x1f]
-	buf[9] = encoding[(h>>16)&0x1f]
+	buf[0] = enc[(h>>61)&0x1f]
+	buf[1] = enc[(h>>56)&0x1f]
+	buf[2] = enc[(h>>51)&0x1f]
+	buf[3] = enc[(h>>46)&0x1f]
+	buf[4] = enc[(h>>41)&0x1f]
+	buf[5] = enc[(h>>36)&0x1f]
+	buf[6] = enc[(h>>31)&0x1f]
+	buf[7] = enc[(h>>26)&0x1f]
+	buf[8] = enc[(h>>21)&0x1f]
+	buf[9] = enc[(h>>16)&0x1f]
 
 	// 16 bytes random
-	buf[10] = encoding[(h>>11)&0x1f]
-	buf[11] = encoding[(h>>6)&0x1f]
-	buf[12] = encoding[(h>>1)&0x1f]
-	buf[13] = encoding[(h<<4|l>>60)&0x1f]
-	buf[14] = encoding[(l>>55)&0x1f]
-	buf[15] = encoding[(l>>50)&0x1f]
-	buf[16] = encoding[(l>>45)&0x1f]
-	buf[17] = encoding[(l>>40)&0x1f]
-	buf[18] = encoding[(l>>35)&0x1f]
-	buf[19] = encoding[(l>>30)&0x1f]
-	buf[20] = encoding[(l>>25)&0x1f]
-	buf[21] = encoding[(l>>20)&0x1f]
-	buf[22] = encoding[(l>>15)&0x1f]
-	buf[23] = encoding[(l>>10)&0x1f]
-	buf[24] = encoding[(l>>5)&0x1f]
-	buf[25] = encoding[l&0x1f]
+	buf[10] = enc[(h>>11)&0x1f]
+	buf[11] = enc[(h>>6)&0x1f]
+	buf[12] = enc[(h>>1)&0x1f]
+	buf[13] = enc[(h<<4|l>>60)&0x1f]
+	buf[14] = enc[(l>>55)&0x1f]
+	buf[15] = enc[(l>>50)&0x1f]
+	buf[16] = enc[(l>>45)&0x1f]
+	buf[17] = enc[(l>>40)&0x1f]
+	buf[18] = enc[(l>>35)&0x1f]
+	buf[19] = enc[(l>>30)&0x1f]
+	buf[20] = enc[(l>>25)&0x1f]
+	buf[21] = enc[(l>>20)&0x1f]
+	buf[22] = enc[(l>>15)&0x1f]
+	buf[23] = enc[(l>>10)&0x1f]
+	buf[24] = enc[(l>>5)&0x1f]
+	buf[25] = enc[l&0x1f]
 
 	return buf
 }
@@ -297,4 +298,28 @@ func (id ULID) IsZero() bool {
 // The result will be 0 if id==other, -1 if id < other, and +1 if id > other.
 func (id ULID) Compare(other ULID) int {
 	return bytes.Compare(id[:], other[:])
+}
+
+// Scan implements the [database/sql.Scanner] interface.
+func (id *ULID) Scan(src any) error {
+	switch x := src.(type) {
+	case []byte:
+		if len(x) != len(id) {
+			return ErrInvalidSize
+		}
+		copy(id[:], x)
+		return nil
+	case string:
+		if len(x) != len(id) {
+			return ErrInvalidSize
+		}
+		copy(id[:], x)
+		return nil
+	}
+	return errors.New("ulid: invalid type")
+}
+
+// Value implements the [database/sql/driver].Valuer interface.
+func (id ULID) Value() (driver.Value, error) {
+	return id[:], nil
 }
