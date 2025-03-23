@@ -22,6 +22,39 @@ func BenchmarkMake(b *testing.B) {
 	}
 }
 
+func TestParse(t *testing.T) {
+	t.Run("valid ulid", func(t *testing.T) {
+		id, err := Parse("01ARZ3NDEKTSV4RRFFQ69G5FAV")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if id != (ULID{0x01, 0x56, 0x3e, 0x3a, 0xb5, 0xd3, 0xd6, 0x76, 0x4c, 0x61, 0xef, 0xb9, 0x93, 0x02, 0xbd, 0x5b}) {
+			t.Fatalf("id=%x", [16]byte(id))
+		}
+	})
+
+	t.Run("invalid size", func(t *testing.T) {
+		_, err := Parse("01ARZ3NDEKTSV4RRFFQ69G5FA")
+		if err != ErrInvalidSize {
+			t.Fatalf("err=%v", err)
+		}
+	})
+
+	t.Run("invalid character", func(t *testing.T) {
+		_, err := Parse("01ARZ3NDEKTSV4RRFFQ69G5FA!")
+		if err != ErrInvalidCharacter {
+			t.Fatalf("err=%v", err)
+		}
+	})
+
+	t.Run("overflow", func(t *testing.T) {
+		_, err := Parse("80000000000000000000000000")
+		if err != ErrOverflow {
+			t.Fatalf("err=%v", err)
+		}
+	})
+}
+
 func BenchmarkParse(b *testing.B) {
 	const s = "0000XSNJG0MQJHBF4QX1EFD6Y3"
 	for b.Loop() {
