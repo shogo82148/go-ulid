@@ -37,6 +37,14 @@ func BenchmarkMake(b *testing.B) {
 	}
 }
 
+func BenchmarkMakeParallel(b *testing.B) {
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			runtime.KeepAlive(Make())
+		}
+	})
+}
+
 func TestSetTime(t *testing.T) {
 	var id ULID
 	id.SetTime(0x1563e3ab5d3)
