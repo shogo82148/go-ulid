@@ -107,6 +107,16 @@ func TestParse(t *testing.T) {
 		}
 	})
 
+	t.Run("lower case ulid", func(t *testing.T) {
+		id, err := Parse("01arz3ndektsv4rrffq69g5fav")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if id != (ULID{0x01, 0x56, 0x3e, 0x3a, 0xb5, 0xd3, 0xd6, 0x76, 0x4c, 0x61, 0xef, 0xb9, 0x93, 0x02, 0xbd, 0x5b}) {
+			t.Fatalf("id=%x", [16]byte(id))
+		}
+	})
+
 	t.Run("invalid size", func(t *testing.T) {
 		_, err := Parse("01ARZ3NDEKTSV4RRFFQ69G5FA")
 		if err != ErrInvalidSize {
