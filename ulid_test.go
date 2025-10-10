@@ -201,15 +201,26 @@ func TestMarshalText(t *testing.T) {
 }
 
 func TestUnmarshalText(t *testing.T) {
-	data := []byte("01ARZ3NDEKTSV4RRFFQ69G5FAV")
-	var id ULID
-	if err := id.UnmarshalText(data); err != nil {
-		t.Fatal(err)
-	}
-	want := ULID{0x01, 0x56, 0x3e, 0x3a, 0xb5, 0xd3, 0xd6, 0x76, 0x4c, 0x61, 0xef, 0xb9, 0x93, 0x02, 0xbd, 0x5b}
-	if id != want {
-		t.Fatalf("want %v, got %v", want, id)
-	}
+	t.Run("valid", func(t *testing.T) {
+		data := []byte("01ARZ3NDEKTSV4RRFFQ69G5FAV")
+		var id ULID
+		if err := id.UnmarshalText(data); err != nil {
+			t.Fatal(err)
+		}
+		want := ULID{0x01, 0x56, 0x3e, 0x3a, 0xb5, 0xd3, 0xd6, 0x76, 0x4c, 0x61, 0xef, 0xb9, 0x93, 0x02, 0xbd, 0x5b}
+		if id != want {
+			t.Fatalf("want %v, got %v", want, id)
+		}
+	})
+
+	t.Run("invalid size", func(t *testing.T) {
+		data := []byte("01ARZ3NDEKTSV4RRFFQ69G5FA")
+		var id ULID
+		err := id.UnmarshalText(data)
+		if !errors.Is(err, ErrInvalidSize) {
+			t.Fatal(err)
+		}
+	})
 }
 
 func TestAppendText(t *testing.T) {
