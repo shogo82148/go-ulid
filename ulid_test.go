@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"encoding"
+	"errors"
 	"runtime"
 	"testing"
 )
@@ -73,15 +74,27 @@ func TestMarshalBinary(t *testing.T) {
 }
 
 func TestUnmarshalBinary(t *testing.T) {
-	data := []byte{0x01, 0x56, 0x3e, 0x3a, 0xb5, 0xd3, 0xd6, 0x76, 0x4c, 0x61, 0xef, 0xb9, 0x93, 0x02, 0xbd, 0x5b}
-	var id ULID
-	if err := id.UnmarshalBinary(data); err != nil {
-		t.Fatal(err)
-	}
-	want := ULID{0x01, 0x56, 0x3e, 0x3a, 0xb5, 0xd3, 0xd6, 0x76, 0x4c, 0x61, 0xef, 0xb9, 0x93, 0x02, 0xbd, 0x5b}
-	if id != want {
-		t.Fatalf("want %v, got %v", want, id)
-	}
+	t.Run("valid", func(t *testing.T) {
+		data := []byte{0x01, 0x56, 0x3e, 0x3a, 0xb5, 0xd3, 0xd6, 0x76, 0x4c, 0x61, 0xef, 0xb9, 0x93, 0x02, 0xbd, 0x5b}
+		var id ULID
+		if err := id.UnmarshalBinary(data); err != nil {
+			t.Fatal(err)
+		}
+		want := ULID{0x01, 0x56, 0x3e, 0x3a, 0xb5, 0xd3, 0xd6, 0x76, 0x4c, 0x61, 0xef, 0xb9, 0x93, 0x02, 0xbd, 0x5b}
+		if id != want {
+			t.Fatalf("want %v, got %v", want, id)
+		}
+	})
+
+	t.Run("invalid size", func(t *testing.T) {
+		data := []byte{0x01, 0x56, 0x3e, 0x3a, 0xb5, 0xd3, 0xd6, 0x76, 0x4c, 0x61, 0xef, 0xb9, 0x93, 0x02, 0xbd}
+		var id ULID
+		err := id.UnmarshalBinary(data)
+		if !errors.Is(err, ErrInvalidSize) {
+			t.Fatal(err)
+		}
+	})
+
 }
 
 func TestAppendBinary(t *testing.T) {
@@ -99,6 +112,16 @@ func TestAppendBinary(t *testing.T) {
 func TestParse(t *testing.T) {
 	t.Run("valid ulid", func(t *testing.T) {
 		id, err := Parse("01ARZ3NDEKTSV4RRFFQ69G5FAV")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if id != (ULID{0x01, 0x56, 0x3e, 0x3a, 0xb5, 0xd3, 0xd6, 0x76, 0x4c, 0x61, 0xef, 0xb9, 0x93, 0x02, 0xbd, 0x5b}) {
+			t.Fatalf("id=%x", [16]byte(id))
+		}
+	})
+
+	t.Run("lower case ulid", func(t *testing.T) {
+		id, err := Parse("01arz3ndektsv4rrffq69g5fav")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -178,15 +201,26 @@ func TestMarshalText(t *testing.T) {
 }
 
 func TestUnmarshalText(t *testing.T) {
-	data := []byte("01ARZ3NDEKTSV4RRFFQ69G5FAV")
-	var id ULID
-	if err := id.UnmarshalText(data); err != nil {
-		t.Fatal(err)
-	}
-	want := ULID{0x01, 0x56, 0x3e, 0x3a, 0xb5, 0xd3, 0xd6, 0x76, 0x4c, 0x61, 0xef, 0xb9, 0x93, 0x02, 0xbd, 0x5b}
-	if id != want {
-		t.Fatalf("want %v, got %v", want, id)
-	}
+	t.Run("valid", func(t *testing.T) {
+		data := []byte("01ARZ3NDEKTSV4RRFFQ69G5FAV")
+		var id ULID
+		if err := id.UnmarshalText(data); err != nil {
+			t.Fatal(err)
+		}
+		want := ULID{0x01, 0x56, 0x3e, 0x3a, 0xb5, 0xd3, 0xd6, 0x76, 0x4c, 0x61, 0xef, 0xb9, 0x93, 0x02, 0xbd, 0x5b}
+		if id != want {
+			t.Fatalf("want %v, got %v", want, id)
+		}
+	})
+
+	t.Run("invalid size", func(t *testing.T) {
+		data := []byte("01ARZ3NDEKTSV4RRFFQ69G5FA")
+		var id ULID
+		err := id.UnmarshalText(data)
+		if !errors.Is(err, ErrInvalidSize) {
+			t.Fatal(err)
+		}
+	})
 }
 
 func TestAppendText(t *testing.T) {
@@ -274,6 +308,14 @@ func TestScan(t *testing.T) {
 		}
 	})
 
+	t.Run("invalid size[]byte", func(t *testing.T) {
+		var id ULID
+		err := id.Scan([]byte{0x01, 0x56, 0x3e, 0x3a, 0xb5, 0xd3, 0xd6, 0x76, 0x4c, 0x61, 0xef, 0xb9, 0x93, 0x02, 0xbd})
+		if !errors.Is(err, ErrInvalidSize) {
+			t.Fatal(err)
+		}
+	})
+
 	t.Run("string", func(t *testing.T) {
 		var id ULID
 		if err := id.Scan(string([]byte{0x01, 0x56, 0x3e, 0x3a, 0xb5, 0xd3, 0xd6, 0x76, 0x4c, 0x61, 0xef, 0xb9, 0x93, 0x02, 0xbd, 0x5b})); err != nil {
@@ -282,6 +324,22 @@ func TestScan(t *testing.T) {
 		want := ULID{0x01, 0x56, 0x3e, 0x3a, 0xb5, 0xd3, 0xd6, 0x76, 0x4c, 0x61, 0xef, 0xb9, 0x93, 0x02, 0xbd, 0x5b}
 		if id != want {
 			t.Fatalf("want %v, got %v", want, id)
+		}
+	})
+
+	t.Run("invalid size string", func(t *testing.T) {
+		var id ULID
+		err := id.Scan(string([]byte{0x01, 0x56, 0x3e, 0x3a, 0xb5, 0xd3, 0xd6, 0x76, 0x4c, 0x61, 0xef, 0xb9, 0x93, 0x02, 0xbd}))
+		if !errors.Is(err, ErrInvalidSize) {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("invalid type", func(t *testing.T) {
+		var id ULID
+		err := id.Scan(123)
+		if err == nil {
+			t.Fatal("err should not be nil")
 		}
 	})
 }
