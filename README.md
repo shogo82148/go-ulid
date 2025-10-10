@@ -1,6 +1,7 @@
 # go-ulid
 
 [![.github/workflows/test.yaml](https://github.com/shogo82148/go-ulid/actions/workflows/test.yaml/badge.svg)](https://github.com/shogo82148/go-ulid/actions/workflows/test.yaml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/shogo82148/go-ulid.svg)](https://pkg.go.dev/github.com/shogo82148/go-ulid)
 
 Universally Unique Lexicographically Sortable Identifier (ULID) generator in Go.
 
