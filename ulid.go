@@ -55,6 +55,10 @@ func Make() ULID {
 
 // SetTime sets the time component of the ULID to the given Unix milliseconds.
 func (id *ULID) SetTime(ms int64) {
+	if ms < 0 || ms > 0xFFFFFFFFFFFF {
+		panic("ulid: time must be between 0 and 2^48-1")
+	}
+	// 48 bits timestamp
 	id[0] = byte(ms >> 40)
 	id[1] = byte(ms >> 32)
 	id[2] = byte(ms >> 24)
