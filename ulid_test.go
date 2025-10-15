@@ -47,11 +47,41 @@ func BenchmarkMakeParallel(b *testing.B) {
 }
 
 func TestSetTime(t *testing.T) {
-	var id ULID
-	id.SetTime(0x1563e3ab5d3)
-	if id != (ULID{0x01, 0x56, 0x3e, 0x3a, 0xb5, 0xd3, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}) {
-		t.Fatalf("id=%x", [16]byte(id))
-	}
+	t.Run("valid", func(t *testing.T) {
+		var id ULID
+		id.SetTime(0x1563e3ab5d3)
+		if id != (ULID{0x01, 0x56, 0x3e, 0x3a, 0xb5, 0xd3, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}) {
+			t.Fatalf("id=%x", [16]byte(id))
+		}
+	})
+
+	t.Run("invalid negative", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Fatalf("did not panic")
+			}
+		}()
+		var id ULID
+		id.SetTime(-1)
+	})
+
+	t.Run("max valid", func(t *testing.T) {
+		var id ULID
+		id.SetTime(0xFFFFFFFFFFFF)
+		if id != (ULID{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}) {
+			t.Fatalf("id=%x", [16]byte(id))
+		}
+	})
+
+	t.Run("invalid overflow", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Fatalf("did not panic")
+			}
+		}()
+		var id ULID
+		id.SetTime(0x1000000000000)
+	})
 }
 
 func TestTime(t *testing.T) {
