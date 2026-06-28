@@ -2,12 +2,15 @@ package ulid
 
 import (
 	"bytes"
+	"crypto/rand"
 	"database/sql"
 	"database/sql/driver"
 	"encoding"
 	"errors"
 	"runtime"
 	"testing"
+	"testing/synctest"
+	"time"
 )
 
 // compile type checks
@@ -21,8 +24,46 @@ var _ encoding.TextUnmarshaler = (*ULID)(nil)
 var _ driver.Valuer = ULID{}
 var _ sql.Scanner = (*ULID)(nil)
 
+type zeroReader struct{}
+
+func (zeroReader) Read(p []byte) (n int, err error) {
+	for i := range p {
+		p[i] = 0
+	}
+	return len(p), nil
+}
+
+type maxReader struct{}
+
+func (maxReader) Read(p []byte) (n int, err error) {
+	for i := range p {
+		p[i] = 0xFF
+	}
+	return len(p), nil
+}
+
 func TestMake(t *testing.T) {
-	seen := make(map[ULID]struct{}, 0)
+	// Test that Make() generates a ULID with the expected time and random components.
+	synctest.Test(t, func(t *testing.T) {
+		randReader = zeroReader{}
+		t.Cleanup(func() { randReader = rand.Reader })
+		id := Make()
+		if id != (ULID{0x00, 0xdc, 0x6a, 0xcf, 0xac, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}) {
+			t.Fatalf("id=%x", [16]byte(id))
+		}
+	})
+
+	synctest.Test(t, func(t *testing.T) {
+		randReader = maxReader{}
+		t.Cleanup(func() { randReader = rand.Reader })
+		id := Make()
+		if id != (ULID{0x00, 0xdc, 0x6a, 0xcf, 0xac, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}) {
+			t.Fatalf("id=%x", [16]byte(id))
+		}
+	})
+
+	// Test that Make() generates unique ULIDs.
+	seen := make(map[ULID]struct{}, 10000)
 	for range 10000 {
 		id := Make()
 		if _, ok := seen[id]; ok {
@@ -32,9 +73,62 @@ func TestMake(t *testing.T) {
 	}
 }
 
+func TestMakeMonotonic(t *testing.T) {
+	// Test that MakeMonotonic() generates a ULID with the expected time and random components.
+	synctest.Test(t, func(t *testing.T) {
+		randReader = zeroReader{}
+		t.Cleanup(func() { randReader = rand.Reader })
+		id := MakeMonotonic()
+		if id != (ULID{0x00, 0xdc, 0x6a, 0xcf, 0xac, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}) {
+			t.Fatalf("id=%x", [16]byte(id))
+		}
+		id = MakeMonotonic()
+		if id != (ULID{0x00, 0xdc, 0x6a, 0xcf, 0xac, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01}) {
+			t.Fatalf("id=%x", [16]byte(id))
+		}
+
+		time.Sleep(time.Millisecond)
+		randReader = maxReader{}
+		id = MakeMonotonic()
+		if id != (ULID{0x00, 0xdc, 0x6a, 0xcf, 0xac, 0x01, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}) {
+			t.Fatalf("id=%x", [16]byte(id))
+		}
+		start := time.Now()
+		id = MakeMonotonic()
+		if id != (ULID{0x00, 0xdc, 0x6a, 0xcf, 0xac, 0x02, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}) {
+			t.Fatalf("id=%x", [16]byte(id))
+		}
+		elapsed := time.Since(start)
+		if elapsed != time.Millisecond {
+			t.Fatalf("elapsed=%v", elapsed)
+		}
+	})
+
+	// Test that MakeMonotonic() generates unique ULIDs.
+	seen := make(map[ULID]struct{}, 10000)
+	lastID := MakeMonotonic()
+	for range 10000 {
+		id := MakeMonotonic()
+		if _, ok := seen[id]; ok {
+			t.Fatalf("duplicate ULID: %v", id)
+		}
+		if id.Compare(lastID) <= 0 {
+			t.Fatalf("ULID is not monotonic: last=%v id=%v", lastID, id)
+		}
+		seen[id] = struct{}{}
+		lastID = id
+	}
+}
+
 func BenchmarkMake(b *testing.B) {
 	for b.Loop() {
 		runtime.KeepAlive(Make())
+	}
+}
+
+func BenchmarkMakeMonotonic(b *testing.B) {
+	for b.Loop() {
+		runtime.KeepAlive(MakeMonotonic())
 	}
 }
 
@@ -42,6 +136,14 @@ func BenchmarkMakeParallel(b *testing.B) {
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			runtime.KeepAlive(Make())
+		}
+	})
+}
+
+func BenchmarkMakeMonotonicParallel(b *testing.B) {
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			runtime.KeepAlive(MakeMonotonic())
 		}
 	})
 }

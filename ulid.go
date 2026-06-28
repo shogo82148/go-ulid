@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"crypto/rand"
 	"database/sql/driver"
+	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
+	"sync"
 	"time"
 )
 
@@ -44,13 +47,58 @@ var ErrOverflow = errors.New("ulid: overflow")
 // EncodedSize is the size of a ULID when encoded to text.
 const EncodedSize = 26
 
+// for testing
+var randReader = rand.Reader
+
+var (
+	mu     sync.Mutex
+	millis int64
+	randHi uint16
+	randLo uint64
+)
+
 // Make returns a ULID with the current time in Unix milliseconds and a random component.
 func Make() ULID {
-	id := ULID{}
+	var id ULID
 	id.SetTime(time.Now().UnixMilli())
-	if _, err := rand.Read(id[6:]); err != nil {
-		panic(err)
+	io.ReadFull(randReader, id[6:])
+	return id
+}
+
+// MakeMonotonic returns a ULID with the current time in Unix milliseconds and a random component.
+// It guarantees that the ULIDs generated are monotonically increasing, even if the time component is the same.
+func MakeMonotonic() ULID {
+	var id ULID
+
+	mu.Lock()
+	defer mu.Unlock()
+
+START:
+	now := time.Now()
+	m := now.UnixMilli()
+	if m > millis {
+		millis = m
+		id.SetTime(m)
+		io.ReadFull(randReader, id[6:])
+		randHi = binary.BigEndian.Uint16(id[6:])
+		randLo = binary.BigEndian.Uint64(id[8:])
+		return id
 	}
+
+	// If the time has not advanced, increment the random component.
+	randLo++
+	if randLo == 0 {
+		randHi++
+		if randHi == 0 {
+			// overflow: wait for the next millisecond
+			wait := 1000000 - now.Nanosecond()%1000000
+			time.Sleep(time.Duration(wait) * time.Nanosecond)
+			goto START
+		}
+	}
+	id.SetTime(m)
+	binary.BigEndian.PutUint16(id[6:], randHi)
+	binary.BigEndian.PutUint64(id[8:], randLo)
 	return id
 }
 
