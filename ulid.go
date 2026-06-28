@@ -61,7 +61,9 @@ var (
 func Make() ULID {
 	var id ULID
 	id.SetTime(time.Now().UnixMilli())
-	io.ReadFull(randReader, id[6:])
+	if _, err := io.ReadFull(randReader, id[6:]); err != nil {
+		panic(err)
+	}
 	return id
 }
 
@@ -79,7 +81,9 @@ START:
 	if m > millis {
 		millis = m
 		id.SetTime(m)
-		io.ReadFull(randReader, id[6:])
+		if _, err := io.ReadFull(randReader, id[6:]); err != nil {
+			panic(err)
+		}
 		randHi = binary.BigEndian.Uint16(id[6:])
 		randLo = binary.BigEndian.Uint64(id[8:])
 		return id
