@@ -316,7 +316,7 @@ func (id *ULID) Scan(src any) error {
 		*id = ret
 		return nil
 	case string:
-		ret, err := parse([]byte(x))
+		ret, err := parse(x)
 		if err != nil {
 			return err
 		}
