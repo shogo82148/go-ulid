@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"database/sql/driver"
 	"errors"
+	"fmt"
 	"time"
 )
 
@@ -308,22 +309,24 @@ func (id ULID) Compare(other ULID) int {
 func (id *ULID) Scan(src any) error {
 	switch x := src.(type) {
 	case []byte:
-		if len(x) != len(id) {
-			return ErrInvalidSize
+		ret, err := parse(x)
+		if err != nil {
+			return err
 		}
-		copy(id[:], x)
+		*id = ret
 		return nil
 	case string:
-		if len(x) != len(id) {
-			return ErrInvalidSize
+		ret, err := parse(x)
+		if err != nil {
+			return err
 		}
-		copy(id[:], x)
+		*id = ret
 		return nil
 	}
-	return errors.New("ulid: invalid type")
+	return fmt.Errorf("ulid: invalid type: %T", src)
 }
 
 // Value implements the [database/sql/driver].Valuer interface.
 func (id ULID) Value() (driver.Value, error) {
-	return id[:], nil
+	return id.String(), nil
 }
