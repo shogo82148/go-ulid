@@ -96,7 +96,7 @@ START:
 		if randHi == 0 {
 			// overflow: wait for the next millisecond
 			wait := 1000000 - now.Nanosecond()%1000000
-			time.Sleep(time.Duration(wait) * time.Nanosecond)
+			time.Sleep(time.Duration(wait)*time.Nanosecond + time.Duration(millis-m)*time.Millisecond)
 			goto START
 		}
 	}
