@@ -76,6 +76,13 @@ func TestMake(t *testing.T) {
 func TestMakeMonotonic(t *testing.T) {
 	// Test that MakeMonotonic() generates a ULID with the expected time and random components.
 	synctest.Test(t, func(t *testing.T) {
+		// reset the state of MakeMonotonic()
+		mu.Lock()
+		millis = 0
+		randHi = 0
+		randLo = 0
+		mu.Unlock()
+
 		randReader = zeroReader{}
 		t.Cleanup(func() { randReader = rand.Reader })
 		id := MakeMonotonic()
